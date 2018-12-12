@@ -7,6 +7,12 @@ use BunnyCDN\Contracts\API\APIContract;
 use GuzzleHttp\Client AS Guzzle;
 use GuzzleHttp\Psr7;
 
+use BunnyCDN\Exceptions\API\AbsentFileException;
+use BunnyCDN\Exceptions\API\APIResponseException;
+use BunnyCDN\Exceptions\API\APIUnavailableException;
+use BunnyCDN\Exceptions\API\InvalidConfigurationException;
+use BunnyCDN\Exceptions\API\UploadFailureException;
+
 class Helper implements APIContract {
 
   private $guzzle;

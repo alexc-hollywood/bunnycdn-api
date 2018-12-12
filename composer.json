@@ -35,5 +35,12 @@
     "config": {
         "sort-packages": true,
         "bin-dir": "bin"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "BunnyCDN\\API\\BunnyCDNAPIServiceProvider"
+            ]
+        }
     }
 }

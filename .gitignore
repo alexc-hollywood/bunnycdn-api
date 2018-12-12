@@ -1,0 +1,7 @@
+.env
+.git
+vendor/
+bin
+coverage
+coverage.xml
+composer.lock

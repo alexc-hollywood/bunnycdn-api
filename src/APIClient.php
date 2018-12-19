@@ -32,7 +32,7 @@ use GuzzleHttp\Exception\ServerException;
  *
  * @link https://bunnycdn.docs.apiary.io/
  */
-class Helper implements APIContract {
+class APIClient implements APIContract {
 
   /** @var Client Container for the HTTP client */
   private $guzzle;

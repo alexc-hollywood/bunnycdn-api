@@ -1,6 +1,6 @@
 <?php
 
-use BunnyCDN\API\Helper AS BunnyCDN;
+use BunnyCDN\API\APIClient AS BunnyCDN;
 
 if ( !function_exists ('bunnycdn_list') ) {
   function bunnycdn_list ( string $remote_path ) {

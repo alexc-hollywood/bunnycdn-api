@@ -2,7 +2,7 @@
 
 namespace BunnyCDN\API;
 
-use BunnyCDN\API\Helper as BunnyCDNAPI;
+use BunnyCDN\API\APIClient as BunnyCDNAPI;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Lumen\Application as LumenApplication;
 use Illuminate\Foundation\Application as LaravelApplication;

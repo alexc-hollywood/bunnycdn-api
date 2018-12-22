@@ -1,6 +1,6 @@
 # BunnyCDN API: Lite Edition
 
-This package provides a very basic Flysystem-like interface to the BunnyCDN API(s). They're not particularly well documented or easy to use as-is.
+This package provides a very basic Flysystem (http://flysystem.thephpleague.com/docs/) -like interface to the BunnyCDN API(s). They're not particularly well documented or easy to use as-is.
 
 Documentation:
 - https://bunnycdn.docs.apiary.io/
@@ -19,7 +19,7 @@ If you have 4 storage zones, you will need **5** keys.
 *This package is designed for use with a single storage zone.*
 
 # Prerequisites
-The package assumes you are using the `dotenv` library for storing sensitive passwords. Keys and other info that should be withheld from public view are assumed to be in a single `.env` file.
+The package assumes you are using the `dotenv` library (https://github.com/vlucas/phpdotenv) for storing sensitive passwords. Keys and other info that should be withheld from public view are assumed to be in a single `.env` file. You should place your own .env file in the package directory.
 
 Example .env configuration
 ```
@@ -32,9 +32,30 @@ The API client does **not auto-create directories**. The folder you are uploadin
 
 Only a **limited set of features** are implemented here. For example, you cannot create pullzones or purge the whole cache. That's simply because a further edit should see it produced as a standardised **Flysystem** driver.
 
+For tests, you should have a `test.jpg` file in your storage zone.
+
 # Usage
 
 The package is primarily about manipulating files, in Flysystem-fashion.
+
+## tl;dr
+Example 1:
+```php
+$api = new BunnyCDN\API\APIClient();
+$fn = uniqId().'.jpg'
+
+if ( !$api->exists ('uploads/'.$fn) {
+    $api->upload ('/path/to/local/file.jpg', 'uploads/'.$fn);
+    if ( $api->size ('uploads/'.$fn) > 0 ) {
+        $api->delete ('uploads/'.$fn);
+    }
+}
+```
+Example 2:
+```php
+bunnycdn_upload (storage_dir ('something.mp4'), 'movies/101.mp4');
+return bunnycdn_exists ('movies/101.mp4');
+```
 
 ## List contents of a directory
 
@@ -56,7 +77,7 @@ By instantiating the class directly:
 $client = new BunnyCDN\API\APIClient();
 
 // storage.bunnycdn.com/storage-zone/video.mp4
-if ($client->exists ('video.mp4') ) {
+if ( $client->exists ('video.mp4') ) {
    // do something
 }
 ```
@@ -64,6 +85,23 @@ Using the helper function:
 ```php
 echo bunnycdn_exists ('video.mp4');
 ```
+## Get the size of a file
+
+By instantiating the class directly:
+```php
+$client = new BunnyCDN\API\APIClient();
+
+// storage.bunnycdn.com/storage-zone/anything.png
+if ( $content_length = $client->size ('anything.png') ) {
+   // do something
+}
+```
+Using the helper function:
+```php
+echo bunnycdn_size ('pitch.ppt');
+```
+*NB: this uses the `content-length` header of an http HEAD request, which may not always be set correctly.*
+
 
 ## Retrieve a file
 
@@ -72,7 +110,7 @@ By instantiating the class directly:
 $client = new BunnyCDN\API\APIClient();
 
 // storage.bunnycdn.com/storage-zone/docs/test.xls
-file_put_contents ('download.xls', $client->get('docs/test.xls');
+file_put_contents ('download.xls', $client->get('docs/test.xls'));
 ```
 Using the helper function:
 ```php
@@ -115,7 +153,7 @@ By instantiating the class directly:
 ```php
 $client = new BunnyCDN\API\APIClient();
 
-if ( $client->delete('test_video.mpg') {
+if ( $client->delete ('test_video.mpg') ) {
     // celebrate
 }
 ```

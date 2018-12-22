@@ -1,6 +1,6 @@
 <?php
 
-namespace BunnyCDN\Exceptions\API;
+namespace BunnyCDN\API\Exceptions;
 
 class InaccessibleLocalFileException extends \Exception {
 

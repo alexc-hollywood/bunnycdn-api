@@ -2,18 +2,18 @@
 
 namespace BunnyCDN\API;
 
-use BunnyCDN\Contracts\API\APIContract;
+use BunnyCDN\API\Contracts\APIContract;
 
 use GuzzleHttp\Client AS Guzzle;
 use GuzzleHttp\Psr7;
 
-use BunnyCDN\Exceptions\API\AbsentFileException;
-use BunnyCDN\Exceptions\API\APIResponseException;
-use BunnyCDN\Exceptions\API\APIUnavailableException;
-use BunnyCDN\Exceptions\API\EmptyPathException;
-use BunnyCDN\Exceptions\API\InaccessibleLocalFileException;
-use BunnyCDN\Exceptions\API\InvalidConfigurationException;
-use BunnyCDN\Exceptions\API\UploadFailureException;
+use BunnyCDN\API\Exceptions\AbsentFileException;
+use BunnyCDN\API\Exceptions\APIResponseException;
+use BunnyCDN\API\Exceptions\APIUnavailableException;
+use BunnyCDN\API\Exceptions\EmptyPathException;
+use BunnyCDN\API\Exceptions\InaccessibleLocalFileException;
+use BunnyCDN\API\Exceptions\InvalidConfigurationException;
+use BunnyCDN\API\Exceptions\UploadFailureException;
 
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\ClientException;
@@ -31,6 +31,7 @@ use GuzzleHttp\Exception\ServerException;
  * This class is designed to be used with a SINGLE storage zone, but you can override it if you're smart.
  *
  * @link https://bunnycdn.docs.apiary.io/
+ * @link https://bunnycdnstorage.docs.apiary.io
  */
 class APIClient implements APIContract {
 
@@ -48,6 +49,8 @@ class APIClient implements APIContract {
 
   /** @var string URL suffix for the public CDN path uploaded files can be accesed from. */
   protected $cdn_url = 'b-cdn.net';
+
+  public $stream;
 
   /**
    * Initializes the helper class with confg and Guzzle client.
@@ -86,7 +89,7 @@ class APIClient implements APIContract {
 
     if ( $test_api ) {
       try {
-        $this->ping ();
+        return $this->ping ();
       } catch ( \Exception $e ) {
         throw new APIUnavailableException ("Could not connect to BunnyCDN: ".$e->getMessage ());
       }
@@ -111,6 +114,24 @@ class APIClient implements APIContract {
   }
 
   /**
+   * Retrieves a listing of files and folders in the specific storage zone, or a subpath.
+   *
+   * @param string        $remote_path Path on the filesystem, e.g. images/
+   * @throws RequestException
+   * @return mixed
+   */
+  public function list ( string $remote_path = '' ) {
+    $response = $this->guzzle->get ( $this->storage_url . env('BUNNYCDN_PULLZONE') . '/' . ($remote_path ?? ''), [
+      'headers' => [
+        'Accept'            => 'application/json',
+        'accesskey'         => env ('BUNNYCDN_STORAGE_KEY'), // NB: uses storage zone key/password, NOT the global API key
+      ]
+    ]);
+
+    return json_decode ((string) $response->getBody());
+  }
+
+  /**
    * Queries the existence of a file in the specified storage zone.
    *
    * Performs a speedy HEAD request to the URL to look for a HTTP 200 response.
@@ -120,37 +141,50 @@ class APIClient implements APIContract {
    * @throws RequestException
    * @return bool
    */
-  public function exists ( string $remote_path ) : bool {
+  public function exists ( string $remote_path ) {
 
     if ( !$remote_path || empty ($remote_path) ) {
       throw new EmptyPathException ("Remote path cannot be blank. String given: " . $remote_path);
     }
 
-    return $this->guzzle->head ( $this->storage_url . env('BUNNYCDN_PULLZONE') . ($remote_path ?? ''), [
-      'headers' => [
-        'Accept'            => 'application/json',
-        'accesskey'         => env ('BUNNYCDN_STORAGE_KEY'), // NB: uses storage zone key/password, NOT the global API key
-      ]
-    ])->getStatusCode() < 300 ? true : false;
-
+    try {
+      return $this->guzzle->head ( $this->storage_url . env('BUNNYCDN_PULLZONE') . '/' . ($remote_path ?? ''), [
+        'headers' => [
+          'Accept'            => 'application/json',
+          'accesskey'         => env ('BUNNYCDN_STORAGE_KEY'), // NB: uses storage zone key/password, NOT the global API key
+        ]
+      ])->getStatusCode() < 300 ? true : false;
+    } catch ( RequestException $e ) {
+      return false;
+    }
   }
 
   /**
-   * Retrieves a listing of files and folders in the specific storage zone, or a subpath.
+   * Queries the size (content-length) of a file in the specified storage zone.
    *
-   * @param string        $remote_path Path on the filesystem, e.g. images/
+   * Performs a speedy HEAD request rather than full download.
+   *
+   * @param string        $remote_path Path to the file, e.g. folder1/something/image.jpg
+   * @throws EmptyPathException
    * @throws RequestException
-   * @return mixed
+   * @return bool
    */
-  public function list ( string $remote_path = '' ) {
-    $response = $this->guzzle->get ( $this->storage_url . env('BUNNYCDN_PULLZONE') . ($remote_path ?? ''), [
-      'headers' => [
-        'Accept'            => 'application/json',
-        'accesskey'         => env ('BUNNYCDN_STORAGE_KEY'), // NB: uses storage zone key/password, NOT the global API key
-      ]
-    ])->getBody();
+  public function size ( string $remote_path ) {
 
-    return json_decode ((string) $response);
+    if ( !$remote_path || empty ($remote_path) ) {
+      throw new EmptyPathException ("Remote path cannot be blank. String given: " . $remote_path);
+    }
+
+    try {
+      return $this->guzzle->head ( $this->storage_url . env('BUNNYCDN_PULLZONE') . '/' . ($remote_path ?? ''), [
+        'headers' => [
+          'Accept'            => 'application/json',
+          'accesskey'         => env ('BUNNYCDN_STORAGE_KEY'), // NB: uses storage zone key/password, NOT the global API key
+        ]
+      ])->getHeader('Content-Length');
+    } catch ( RequestException $e ) {
+      return false;
+    }
   }
 
   /**
@@ -171,7 +205,7 @@ class APIClient implements APIContract {
       throw new EmptyPathException ("Remote path cannot be blank. String given: " . $remote_path);
     }
 
-    $response = $this->guzzle->get ( $this->storage_url . env('BUNNYCDN_PULLZONE') . urlencode($remote_path), [
+    $response = $this->guzzle->get ( $this->storage_url . env('BUNNYCDN_PULLZONE') . '/' . urlencode($remote_path), [
       'headers' => [
         'accesskey'         => env ('BUNNYCDN_STORAGE_KEY'), // NB: uses storage zone key/password, NOT the global API key
       ]
@@ -201,7 +235,7 @@ class APIClient implements APIContract {
    * @throws RequestException
    * @return mixed
    */
-  public function put ( string $local_file, string $remote_path, $randomize_filename = false ) {
+  public function put ( string $local_file, $remote_path = '', $randomize_filename = false ) {
 
     if ( !$remote_path || empty ($remote_path) ) {
       throw new EmptyPathException ("Remote path cannot be blank. String given: " . $remote_path);
@@ -216,24 +250,33 @@ class APIClient implements APIContract {
       throw new InaccessibleLocalFileException ( $local_file . " does not exist, is not readable, or is not valid." );
     }
 
-    $file_path_to_store_to = urlencode ($remote_path);
+    try {
 
-    if ( $randomize_filename ) {
-      $file_path_to_store_to =  pathinfo ($remote_path, PATHINFO_DIRNAME) . md5 (pathinfo($remote_path, PATHINFO_BASENAME)) . '-'. uniqId() . '.' . pathinfo ($remote_path, PATHINFO_EXTENSION);
+      $this->stream = Psr7\stream_for (file_get_contents ($local_file));
+
+      $response = $this->guzzle->put ($this->storage_url . env('BUNNYCDN_PULLZONE') . '/' . ($remote_path ?? ''), [
+          'headers' => [
+            'accesskey'         => env ('BUNNYCDN_STORAGE_KEY'), // NB: uses storage zone key/password, NOT the global API key
+          ],
+          'body'              => $this->stream,
+        ]
+      );
+
+      if ( $response->getStatusCode() >= 400) {
+        throw new UploadFailureException ("Upload failed with HTTP status: ".$response->getStatusCode());
+        return false;
+      }
+
+      if ( $response->getStatusCode() == 201 ) {
+        return true;
+      }
+
+    } catch ( RequestException $e ) {
+      throw new UploadFailureException ($e->getMessage ());
+      return false;
     }
 
-    $response = $this->guzzle->put ($this->storage_url . env('BUNNYCDN_PULLZONE') . $file_path_to_store_to, [
-        'Accept'            => 'application/json',
-        'accesskey'         => env ('BUNNYCDN_STORAGE_KEY'),  // NB: uses storage zone key/password, NOT the global API key
-        'body'              => Psr7\stream_for ( file_get_contents ($local_file) )
-      ],
-    );
-
-    if ( $response->getStatusCode() >= 400) {
-      throw new FileUploadException;
-    }
-
-    return json_decode ((string) $response);
+    return false;
 
   }
 
@@ -247,20 +290,20 @@ class APIClient implements APIContract {
    * @throws RequestException
    * @return mixed
    */
-  public function delete ( string $remote_path ) : mixed {
+  public function delete ( string $remote_path ) {
 
     if ( !$remote_path || empty ($remote_path) ) {
       throw new EmptyPathException ("Remote path cannot be blank. String given: " . $remote_path);
     }
 
-    $response = $this->guzzle->delete ( $this->storage_url . env('BUNNYCDN_PULLZONE') . urlencode($remote_path), [
+    $response = $this->guzzle->delete ( $this->storage_url . env('BUNNYCDN_PULLZONE') . '/' . urlencode($remote_path), [
       'headers' => [
         'Accept'            => 'application/json',
         'accesskey'         => env ('BUNNYCDN_STORAGE_KEY'),  // NB: uses storage zone key/password, NOT the global API key
       ]
     ]);
 
-    return json_decode ((string) $response);
+    return $response->getStatusCode() < 300 ? true : false;
 
   }
 
@@ -286,7 +329,7 @@ class APIClient implements APIContract {
       'accesskey'         => env ('BUNNYCDN_API_KEY'),
     ]);
 
-    return json_decode ((string) $response);
+    return json_decode ((string) $response->getBody());
   }
 
 }

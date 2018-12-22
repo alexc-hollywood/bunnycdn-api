@@ -3,14 +3,20 @@
 use BunnyCDN\API\APIClient AS BunnyCDN;
 
 if ( !function_exists ('bunnycdn_list') ) {
-  function bunnycdn_list ( string $remote_path ) {
-    (new BunnyCDN)->list ( $remote_path );
+  function bunnycdn_list ( string $remote_path = '' ) {
+    return (new BunnyCDN)->list ( $remote_path );
   }
 }
 
 if ( !function_exists ('bunnycdn_exists') ) {
   function bunnycdn_exists ( string $remote_path ) {
     return (new BunnyCDN)->exists ( $remote_path );
+  }
+}
+
+if ( !function_exists ('bunnycdn_size') ) {
+  function bunnycdn_size ( string $remote_path ) {
+    return (new BunnyCDN)->size ( $remote_path );
   }
 }
 
@@ -33,9 +39,7 @@ if ( !function_exists ('bunnycdn_purge') ) {
 }
 
 if ( !function_exists ('bunnycdn_delete') ) {
-  function bunnycdn_delete (string $remote_path) {
-    function bunnycdn_delete ( string $remote_path) {
-      return (new BunnyCDN)->delete ( $remote_path );
-    }
+  function bunnycdn_delete ( string $remote_path) {
+    return (new BunnyCDN)->delete ( $remote_path );
   }
 }
